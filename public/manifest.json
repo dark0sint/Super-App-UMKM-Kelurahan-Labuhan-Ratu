@@ -1,0 +1,13 @@
+{
+  "name": "Super App UMKM Kelurahan Labuhan Ratu",
+  "short_name": "UMKM Labuhan Ratu",
+  "description": "Aplikasi terpadu UMKM Kelurahan Labuhan Ratu, Kecamatan Labuhan Ratu, Kota Bandar Lampung",
+  "start_url": "/index.html",
+  "display": "standalone",
+  "background_color": "#faf6ee",
+  "theme_color": "#3a0d14",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}

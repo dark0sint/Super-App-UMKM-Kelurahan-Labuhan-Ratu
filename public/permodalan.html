@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Modal Usaha - Super App UMKM Labuhan Ratu</title>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#3a0d14">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<div class="app-shell">
+  <div class="topbar">
+    <div><h1>🏦 Modal BUMDes/LPD</h1><div class="kelurahan">Pembiayaan mikro pelaku UMKM</div></div>
+    <a href="/index.html" style="color:var(--emas-300); font-size:13px;">← Kembali</a>
+  </div>
+
+  <main>
+    <div class="card">
+      <h3>Ajukan Modal Usaha</h3>
+      <label>Nominal Pengajuan (Rp)</label>
+      <input id="amount" type="number" placeholder="0">
+      <label>Tenor (bulan)</label>
+      <select id="tenor">
+        <option value="3">3 bulan</option>
+        <option value="6" selected>6 bulan</option>
+        <option value="12">12 bulan</option>
+      </select>
+      <label>Tujuan Penggunaan</label>
+      <textarea id="purpose" rows="3" placeholder="Contoh: tambah bahan baku, beli etalase, dsb."></textarea>
+      <button class="btn emas" style="margin-top:14px" onclick="submitRequest()">Kirim Pengajuan ke BUMDes/LPD</button>
+      <p style="font-size:12px; color:var(--tinta-600); margin-top:8px;">Pengajuan akan ditinjau oleh pengurus BUMDes/LPD Labuhan Ratu sebagai bagian dari program kemitraan permodalan UMKM.</p>
+    </div>
+
+    <div class="card">
+      <h3>Riwayat Pengajuan</h3>
+      <div id="request-list"><div class="empty-state">Belum ada pengajuan.</div></div>
+    </div>
+  </main>
+
+  <nav class="bottom-nav">
+    <a href="/index.html"><span class="ico">🏠</span>Beranda</a>
+    <a href="/kasir.html"><span class="ico">🧾</span>Kasir</a>
+    <a href="/keuangan.html"><span class="ico">📊</span>Keuangan</a>
+    <a href="/stok.html"><span class="ico">📦</span>Stok</a>
+    <a href="/marketplace.html"><span class="ico">🏪</span>Pasar</a>
+  </nav>
+</div>
+
+<script src="/js/api.js"></script>
+<script src="/js/auth-guard.js"></script>
+<script>
+const statusLabel = { diajukan: 'Diajukan', ditinjau: 'Ditinjau', disetujui: 'Disetujui', ditolak: 'Ditolak', cair: 'Dana Cair' };
+const statusClass = { diajukan: 'warn', ditinjau: 'warn', disetujui: 'ok', cair: 'ok', ditolak: 'expense' };
+
+async function load(){
+  try {
+    const r = await API.get('/api/financing/my-requests');
+    document.getElementById('request-list').innerHTML = r.requests.length ? r.requests.map(x => `
+      <div class="list-row">
+        <div><div>${rupiah(x.amount)} • ${x.tenor_bulan} bln</div><div class="meta">${x.purpose || '-'}</div></div>
+        <span class="pill ${statusClass[x.status]}">${statusLabel[x.status]}</span>
+      </div>`).join('') : '<div class="empty-state">Belum ada pengajuan.</div>';
+  } catch(e){}
+}
+
+async function submitRequest(){
+  const amount = document.getElementById('amount').value;
+  const tenor_bulan = document.getElementById('tenor').value;
+  const purpose = document.getElementById('purpose').value.trim();
+  if (!amount || Number(amount) <= 0){ toast('Isi nominal pengajuan.'); return; }
+  try {
+    const r = await API.post('/api/financing/', { amount, tenor_bulan, purpose });
+    toast(r.message);
+    document.getElementById('amount').value = '';
+    document.getElementById('purpose').value = '';
+    load();
+  } catch(e){ toast(e.error || 'Gagal mengirim pengajuan.'); }
+}
+
+load();
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('/service-worker.js').catch(()=>{});
+</script>
+</body>
+</html>

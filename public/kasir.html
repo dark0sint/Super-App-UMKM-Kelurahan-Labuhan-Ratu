@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Kasir Digital - Super App UMKM Labuhan Ratu</title>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#3a0d14">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+<style>
+  .cart-row{display:flex; align-items:center; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--garis);}
+  .qty-ctrl{display:flex; align-items:center; gap:8px;}
+  .qty-ctrl button{width:28px; height:28px; border-radius:6px; border:1px solid var(--garis); background:#fff;}
+  .tab-switch{display:flex; gap:8px; margin-bottom:12px;}
+  .tab-switch button{flex:1; padding:9px; border-radius:8px; border:1.5px solid var(--marun-700); background:#fff; color:var(--marun-700); font-weight:600;}
+  .tab-switch button.on{background:var(--marun-700); color:#fff;}
+</style>
+</head>
+<body>
+<div class="app-shell">
+  <div class="topbar">
+    <div><h1>🧾 Kasir Digital</h1><div class="kelurahan" id="queue-hint">Transaksi & struk instan</div></div>
+    <a href="/index.html" style="color:var(--emas-300); font-size:13px;">← Kembali</a>
+  </div>
+
+  <main>
+    <div class="tab-switch">
+      <button id="tab-btn-jual" class="on" onclick="switchTab('jual')">Jual</button>
+      <button id="tab-btn-qris" onclick="switchTab('qris')">QRIS Desa</button>
+    </div>
+
+    <div id="tab-jual">
+      <div class="card">
+        <h3>Pilih Produk</h3>
+        <input id="search" placeholder="Cari produk…" oninput="renderProducts()">
+        <div id="product-picker" style="margin-top:10px; max-height:220px; overflow-y:auto;"></div>
+      </div>
+
+      <div class="card">
+        <h3>Keranjang</h3>
+        <div id="cart-list"><div class="empty-state">Keranjang kosong.</div></div>
+        <div class="list-row" style="border-top:2px solid var(--tinta-900); margin-top:6px;">
+          <strong>Total</strong><strong id="cart-total">Rp0</strong>
+        </div>
+        <label>Metode Pembayaran</label>
+        <select id="payment-method">
+          <option value="tunai">Tunai</option>
+          <option value="qris">QRIS</option>
+        </select>
+        <label>Nama Pembeli (opsional)</label>
+        <input id="customer-name" placeholder="Opsional">
+        <button class="btn emas" style="margin-top:14px" onclick="checkout()">Proses Transaksi</button>
+      </div>
+
+      <div class="card">
+        <h3>Transaksi Terakhir</h3>
+        <div id="recent-sales"><div class="empty-state">Belum ada transaksi.</div></div>
+      </div>
+    </div>
+
+    <div id="tab-qris" style="display:none;">
+      <div class="card">
+        <h3>Buat QR Pembayaran</h3>
+        <label>Nominal (Rp)</label>
+        <input id="qris-amount" type="number" placeholder="0">
+        <button class="btn emas" style="margin-top:12px" onclick="generateQris()">Buat QRIS</button>
+      </div>
+      <div class="card" id="qris-result" style="display:none; text-align:center;">
+        <img id="qris-image" style="width:220px; margin:0 auto;">
+        <p style="font-size:13px; color:var(--tinta-600);">Minta pembeli scan QR ini dengan aplikasi bank/e-wallet mana pun. Dana masuk otomatis ke rekening/e-wallet Anda.</p>
+        <button class="btn hijau" onclick="simulateQrisPaid()">Tandai Sudah Dibayar (demo)</button>
+      </div>
+    </div>
+  </main>
+
+  <nav class="bottom-nav">
+    <a href="/index.html"><span class="ico">🏠</span>Beranda</a>
+    <a href="/kasir.html" class="active"><span class="ico">🧾</span>Kasir</a>
+    <a href="/keuangan.html"><span class="ico">📊</span>Keuangan</a>
+    <a href="/stok.html"><span class="ico">📦</span>Stok</a>
+    <a href="/marketplace.html"><span class="ico">🏪</span>Pasar</a>
+  </nav>
+</div>
+
+<script src="/js/api.js"></script>
+<script src="/js/auth-guard.js"></script>
+<script src="/js/offline.js"></script>
+<script>
+let products = [];
+let cart = []; // {product_id, product_name, price, qty}
+let currentQrisId = null;
+
+async function loadProducts(){
+  try {
+    const res = await API.get('/api/products');
+    products = res.products;
+  } catch(e){
+    products = JSON.parse(localStorage.getItem('umkm_products_cache') || '[]');
+  }
+  localStorage.setItem('umkm_products_cache', JSON.stringify(products));
+  renderProducts();
+}
+
+function renderProducts(){
+  const q = document.getElementById('search').value.toLowerCase();
+  const filtered = products.filter(p => p.name.toLowerCase().includes(q));
+  document.getElementById('product-picker').innerHTML = filtered.length ? filtered.map(p => `
+    <div class="list-row">
+      <div><div>${p.name}</div><div class="meta">${rupiah(p.price)} • stok ${p.stock}</div></div>
+      <button class="btn kecil emas" onclick="addToCart(${p.id})">+ Tambah</button>
+    </div>`).join('') : '<div class="empty-state">Produk tidak ditemukan.</div>';
+}
+
+function addToCart(productId){
+  const p = products.find(x => x.id === productId);
+  if (!p) return;
+  const existing = cart.find(c => c.product_id === productId);
+  if (existing) existing.qty += 1;
+  else cart.push({ product_id: p.id, product_name: p.name, price: p.price, qty: 1 });
+  renderCart();
+}
+
+function renderCart(){
+  const el = document.getElementById('cart-list');
+  el.innerHTML = cart.length ? cart.map((c, i) => `
+    <div class="cart-row">
+      <div><div>${c.product_name}</div><div class="meta">${rupiah(c.price)}</div></div>
+      <div class="qty-ctrl">
+        <button onclick="changeQty(${i}, -1)">-</button>
+        <span>${c.qty}</span>
+        <button onclick="changeQty(${i}, 1)">+</button>
+      </div>
+    </div>`).join('') : '<div class="empty-state">Keranjang kosong.</div>';
+  const total = cart.reduce((s, c) => s + c.price * c.qty, 0);
+  document.getElementById('cart-total').textContent = rupiah(total);
+}
+
+function changeQty(i, delta){
+  cart[i].qty += delta;
+  if (cart[i].qty <= 0) cart.splice(i, 1);
+  renderCart();
+}
+
+async function checkout(){
+  if (cart.length === 0){ toast('Keranjang masih kosong.'); return; }
+  const payload = {
+    items: cart.map(c => ({ product_id: c.product_id, product_name: c.product_name, price: c.price, qty: c.qty })),
+    payment_method: document.getElementById('payment-method').value,
+    customer_name: document.getElementById('customer-name').value.trim(),
+    trans_date: new Date().toISOString()
+  };
+  try {
+    const r = await OfflineSync.submitSale(payload);
+    if (r.mode === 'online'){
+      toast(`Transaksi berhasil. No. struk ${r.result.sale.receipt_no}`);
+      if (r.result.lowStockWarning?.length) toast(`Perhatian: ${r.result.lowStockWarning.length} produk stoknya menipis.`, 3500);
+      cart = []; renderCart();
+      window.open(`/struk.html?id=${r.result.sale.id}`, '_blank');
+      loadProducts(); loadRecentSales();
+    } else {
+      toast('Sedang offline — transaksi disimpan lokal & struk digital tetap bisa dibuat. Akan disinkron otomatis.');
+      cart = []; renderCart();
+    }
+  } catch(e){
+    toast(e.error || 'Gagal memproses transaksi.');
+  }
+}
+
+async function loadRecentSales(){
+  try {
+    const res = await API.get('/api/pos/sales');
+    const el = document.getElementById('recent-sales');
+    el.innerHTML = res.sales.length ? res.sales.slice(0, 10).map(s => `
+      <div class="list-row">
+        <div><div>${s.receipt_no}</div><div class="meta">${new Date(s.created_at).toLocaleString('id-ID')}</div></div>
+        <div style="text-align:right;">
+          <div><strong>${rupiah(s.total)}</strong></div>
+          <a href="/struk.html?id=${s.id}" style="font-size:12px; color:var(--marun-700);">Lihat Struk</a>
+        </div>
+      </div>`).join('') : '<div class="empty-state">Belum ada transaksi.</div>';
+  } catch(e){}
+}
+
+function switchTab(tab){
+  document.getElementById('tab-jual').style.display = tab === 'jual' ? 'block' : 'none';
+  document.getElementById('tab-qris').style.display = tab === 'qris' ? 'block' : 'none';
+  document.getElementById('tab-btn-jual').classList.toggle('on', tab === 'jual');
+  document.getElementById('tab-btn-qris').classList.toggle('on', tab === 'qris');
+}
+
+async function generateQris(){
+  const amount = document.getElementById('qris-amount').value;
+  if (!amount || Number(amount) <= 0){ toast('Isi nominal dulu.'); return; }
+  try {
+    const r = await API.post('/api/qris/generate', { amount });
+    currentQrisId = r.id;
+    document.getElementById('qris-result').style.display = 'block';
+    document.getElementById('qris-image').src = r.qr_image;
+  } catch(e){ toast(e.error || 'Gagal membuat QRIS. Fitur ini butuh koneksi internet.'); }
+}
+
+async function simulateQrisPaid(){
+  if (!currentQrisId) return;
+  try {
+    const r = await API.post(`/api/qris/simulate-paid/${currentQrisId}`, {});
+    toast(r.message);
+  } catch(e){ toast(e.error || 'Gagal konfirmasi pembayaran.'); }
+}
+
+const params = new URLSearchParams(location.search);
+if (params.get('tab') === 'qris') switchTab('qris');
+
+loadProducts();
+loadRecentSales();
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('/service-worker.js').catch(()=>{});
+</script>
+</body>
+</html>

@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Logistik Desa - Super App UMKM Labuhan Ratu</title>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#3a0d14">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<div class="app-shell">
+  <div class="topbar">
+    <div><h1>🛵 Logistik Desa</h1><div class="kelurahan">Ojek desa & kurir lokal kolektif</div></div>
+    <a href="/index.html" style="color:var(--emas-300); font-size:13px;">← Kembali</a>
+  </div>
+
+  <main>
+    <div class="card">
+      <h3>Buat Permintaan Kirim Barang</h3>
+      <label>Jenis Kurir</label>
+      <select id="courier-type">
+        <option value="ojek_desa">Ojek Desa (dalam kelurahan, lebih murah)</option>
+        <option value="kurir_lokal">Kurir Lokal (antar kelurahan/kecamatan)</option>
+      </select>
+      <label>Alamat Jemput</label>
+      <input id="pickup" placeholder="Alamat toko/rumah Anda">
+      <label>Alamat Tujuan</label>
+      <input id="dropoff" placeholder="Alamat penerima">
+      <label>Nama Penerima</label>
+      <input id="recipient-name" placeholder="Opsional">
+      <label>No. WhatsApp Penerima</label>
+      <input id="recipient-phone" placeholder="Opsional">
+      <label>Catatan</label>
+      <textarea id="notes" rows="2" placeholder="Opsional"></textarea>
+      <button class="btn emas" style="margin-top:14px" onclick="submitRequest()">Kirim Permintaan</button>
+    </div>
+
+    <div class="card">
+      <h3>Riwayat Pengiriman</h3>
+      <div id="request-list"><div class="empty-state">Belum ada permintaan pengiriman.</div></div>
+    </div>
+  </main>
+
+  <nav class="bottom-nav">
+    <a href="/index.html"><span class="ico">🏠</span>Beranda</a>
+    <a href="/kasir.html"><span class="ico">🧾</span>Kasir</a>
+    <a href="/keuangan.html"><span class="ico">📊</span>Keuangan</a>
+    <a href="/stok.html"><span class="ico">📦</span>Stok</a>
+    <a href="/marketplace.html"><span class="ico">🏪</span>Pasar</a>
+  </nav>
+</div>
+
+<script src="/js/api.js"></script>
+<script src="/js/auth-guard.js"></script>
+<script>
+const statusLabel = { menunggu: 'Menunggu', diambil: 'Diambil Kurir', diantar: 'Sedang Diantar', selesai: 'Selesai', batal: 'Dibatalkan' };
+
+async function load(){
+  try {
+    const r = await API.get('/api/logistics/my-requests');
+    document.getElementById('request-list').innerHTML = r.requests.length ? r.requests.map(x => `
+      <div class="list-row">
+        <div><div>${x.dropoff_address}</div><div class="meta">${x.courier_type === 'ojek_desa' ? 'Ojek Desa' : 'Kurir Lokal'} • Ongkir ${rupiah(x.ongkir)}</div></div>
+        <span class="pill warn">${statusLabel[x.status]}</span>
+      </div>`).join('') : '<div class="empty-state">Belum ada permintaan pengiriman.</div>';
+  } catch(e){}
+}
+
+async function submitRequest(){
+  const payload = {
+    courier_type: document.getElementById('courier-type').value,
+    pickup_address: document.getElementById('pickup').value.trim(),
+    dropoff_address: document.getElementById('dropoff').value.trim(),
+    recipient_name: document.getElementById('recipient-name').value.trim(),
+    recipient_phone: document.getElementById('recipient-phone').value.trim(),
+    notes: document.getElementById('notes').value.trim()
+  };
+  if (!payload.pickup_address || !payload.dropoff_address){ toast('Isi alamat jemput dan tujuan.'); return; }
+  try {
+    const r = await API.post('/api/logistics/request', payload);
+    toast(`${r.message} Estimasi ongkir: ${rupiah(r.ongkir)}`);
+    load();
+  } catch(e){ toast(e.error || 'Gagal mengirim permintaan.'); }
+}
+
+load();
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('/service-worker.js').catch(()=>{});
+</script>
+</body>
+</html>

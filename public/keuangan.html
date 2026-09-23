@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Keuangan Otomatis - Super App UMKM Labuhan Ratu</title>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#3a0d14">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<div class="app-shell">
+  <div class="topbar">
+    <div><h1>📊 Keuangan Otomatis</h1><div class="kelurahan">Untung-rugi tanpa rumus rumit</div></div>
+    <a href="/index.html" style="color:var(--emas-300); font-size:13px;">← Kembali</a>
+  </div>
+
+  <main>
+    <div class="card">
+      <select id="period" onchange="load()">
+        <option value="today">Hari ini</option>
+        <option value="week">7 hari terakhir</option>
+        <option value="month" selected>Bulan ini</option>
+        <option value="year">Tahun ini</option>
+      </select>
+    </div>
+
+    <div class="stat-row" style="margin-bottom:14px;">
+      <div class="stat"><div class="label">PEMASUKAN</div><div class="value" id="v-income">Rp0</div></div>
+      <div class="stat"><div class="label">PENGELUARAN</div><div class="value" id="v-expense">Rp0</div></div>
+    </div>
+    <div class="card" id="conclusion-card">
+      <h3 id="conclusion-title">Menghitung…</h3>
+      <p id="conclusion-text" style="color:var(--tinta-600); font-size:13.5px;"></p>
+    </div>
+
+    <div class="card">
+      <h3>Rincian per Kategori</h3>
+      <div id="category-list"><div class="empty-state">Belum ada data.</div></div>
+    </div>
+
+    <div class="card">
+      <h3>Catat Transaksi Manual</h3>
+      <label>Jenis</label>
+      <select id="f-type">
+        <option value="income">Pemasukan</option>
+        <option value="expense">Pengeluaran</option>
+      </select>
+      <label>Kategori</label>
+      <input id="f-category" placeholder="Contoh: Bahan Baku, Sewa, Penjualan Lain">
+      <label>Nominal (Rp)</label>
+      <input id="f-amount" type="number" inputmode="numeric" placeholder="0">
+      <label>Keterangan</label>
+      <input id="f-desc" placeholder="Opsional">
+      <button class="btn emas" style="margin-top:14px" onclick="addTransaction()">Simpan Transaksi</button>
+    </div>
+
+    <div class="card">
+      <h3>Riwayat Transaksi</h3>
+      <div id="tx-list"><div class="empty-state">Belum ada transaksi.</div></div>
+    </div>
+  </main>
+
+  <nav class="bottom-nav">
+    <a href="/index.html"><span class="ico">🏠</span>Beranda</a>
+    <a href="/kasir.html"><span class="ico">🧾</span>Kasir</a>
+    <a href="/keuangan.html" class="active"><span class="ico">📊</span>Keuangan</a>
+    <a href="/stok.html"><span class="ico">📦</span>Stok</a>
+    <a href="/marketplace.html"><span class="ico">🏪</span>Pasar</a>
+  </nav>
+</div>
+
+<script src="/js/api.js"></script>
+<script src="/js/auth-guard.js"></script>
+<script src="/js/offline.js"></script>
+<script>
+async function load(){
+  const period = document.getElementById('period').value;
+  try {
+    const s = await API.get('/api/finance/summary?period=' + period);
+    document.getElementById('v-income').textContent = rupiah(s.pemasukan);
+    document.getElementById('v-expense').textContent = rupiah(s.pengeluaran);
+    const cc = document.getElementById('conclusion-card');
+    cc.className = 'card ' ;
+    document.getElementById('conclusion-title').textContent = s.status === 'untung' ? '✅ Usaha Anda Untung' : '⚠️ Usaha Anda Rugi';
+    document.getElementById('conclusion-text').textContent = s.kesimpulan;
+
+    const catEl = document.getElementById('category-list');
+    catEl.innerHTML = s.rincian_kategori.length ? s.rincian_kategori.map(c => `
+      <div class="list-row">
+        <span>${c.category || '(Tanpa kategori)'}</span>
+        <span class="pill ${c.type}">${c.type === 'income' ? '+' : '-'} ${rupiah(c.total)}</span>
+      </div>`).join('') : '<div class="empty-state">Belum ada data.</div>';
+
+    const txs = await API.get('/api/finance/transactions?from=' + s.start + '&to=' + s.end);
+    const txEl = document.getElementById('tx-list');
+    txEl.innerHTML = txs.transactions.length ? txs.transactions.map(t => `
+      <div class="list-row">
+        <div><div>${t.category || '-'}</div><div class="meta">${t.trans_date} • ${t.description || ''}</div></div>
+        <span class="pill ${t.type}">${t.type === 'income' ? '+' : '-'}${rupiah(t.amount)}</span>
+      </div>`).join('') : '<div class="empty-state">Belum ada transaksi.</div>';
+  } catch(e){
+    toast(e.error || 'Gagal memuat data (mungkin sedang offline).');
+  }
+}
+
+async function addTransaction(){
+  const type = document.getElementById('f-type').value;
+  const category = document.getElementById('f-category').value.trim();
+  const amount = document.getElementById('f-amount').value;
+  const description = document.getElementById('f-desc').value.trim();
+  if (!amount || Number(amount) <= 0){ toast('Isi nominal yang benar.'); return; }
+  try {
+    await API.post('/api/finance/transactions', { type, category, amount, description });
+    toast('Transaksi tersimpan.');
+    document.getElementById('f-amount').value = '';
+    document.getElementById('f-desc').value = '';
+    document.getElementById('f-category').value = '';
+    load();
+  } catch(e){
+    toast(e.error || 'Gagal menyimpan transaksi. Coba lagi saat online.');
+  }
+}
+
+load();
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('/service-worker.js').catch(()=>{});
+</script>
+</body>
+</html>

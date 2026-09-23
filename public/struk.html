@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Struk - Super App UMKM Labuhan Ratu</title>
+<link rel="stylesheet" href="/css/style.css">
+<style>
+  body{background:#eee;}
+  .wrap{max-width:360px; margin:20px auto; padding:0 12px;}
+  .actions{display:flex; gap:8px; margin-top:14px;}
+  @media print{ .actions, .topbar-actions{display:none !important;} body{background:#fff;} .wrap{margin:0;} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="receipt" id="receipt">Memuat struk…</div>
+  <div class="actions">
+    <button class="btn kecil emas" style="flex:1" onclick="window.print()">🖨️ Cetak (Bluetooth/Printer)</button>
+    <button class="btn kecil outline" style="flex:1" onclick="shareReceipt()">📤 Bagikan Digital</button>
+  </div>
+</div>
+
+<script src="/js/api.js"></script>
+<script>
+const id = new URLSearchParams(location.search).get('id');
+let receiptText = '';
+
+async function load(){
+  try {
+    const r = await API.get(`/api/pos/receipt/${id}`);
+    const seller = r.seller;
+    const lines = [];
+    lines.push(`*${(seller.business_name || seller.name).toUpperCase()}*`);
+    lines.push(seller.wa_number ? `WA: ${seller.wa_number}` : '');
+    lines.push('--------------------------------');
+    lines.push(`No: ${r.sale.receipt_no}`);
+    lines.push(`Tanggal: ${new Date(r.sale.created_at).toLocaleString('id-ID')}`);
+    if (r.sale.customer_name) lines.push(`Pembeli: ${r.sale.customer_name}`);
+    lines.push('--------------------------------');
+    r.items.forEach(it => {
+      lines.push(`${it.product_name}`);
+      lines.push(`  ${it.qty} x ${rupiah(it.price)} = ${rupiah(it.subtotal)}`);
+    });
+    lines.push('--------------------------------');
+    lines.push(`TOTAL: ${rupiah(r.sale.total)}`);
+    lines.push(`Bayar: ${r.sale.payment_method.toUpperCase()}`);
+    lines.push('--------------------------------');
+    lines.push('Terima kasih telah berbelanja di');
+    lines.push('UMKM Kelurahan Labuhan Ratu 🙏');
+
+    receiptText = lines.filter(Boolean).join('\n');
+    document.getElementById('receipt').innerHTML = lines.filter(Boolean).map(l =>
+      `<div class="row">${l.replace(/^\*(.+)\*$/, '<strong>$1</strong>')}</div>`
+    ).join('');
+    document.title = `Struk ${r.sale.receipt_no}`;
+  } catch(e){
+    document.getElementById('receipt').textContent = 'Struk tidak ditemukan atau sedang offline.';
+  }
+}
+
+async function shareReceipt(){
+  if (navigator.share){
+    try { await navigator.share({ title: 'Struk Belanja', text: receiptText }); return; } catch(e){}
+  }
+  await navigator.clipboard.writeText(receiptText);
+  toast('Teks struk disalin, tinggal tempel ke WhatsApp.');
+}
+
+load();
+</script>
+</body>
+</html>

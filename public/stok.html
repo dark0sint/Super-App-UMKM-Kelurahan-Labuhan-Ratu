@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Manajemen Stok - Super App UMKM Labuhan Ratu</title>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#3a0d14">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<div class="app-shell">
+  <div class="topbar">
+    <div><h1>📦 Manajemen Stok</h1><div class="kelurahan">Notifikasi otomatis saat stok menipis</div></div>
+    <a href="/index.html" style="color:var(--emas-300); font-size:13px;">← Kembali</a>
+  </div>
+
+  <main>
+    <div class="card" id="new-product-card">
+      <h3>Tambah Produk / Bahan Baku</h3>
+      <label>Nama</label><input id="p-name" placeholder="Contoh: Keripik Pisang 100gr">
+      <label>Kategori</label><input id="p-category" placeholder="Contoh: Makanan Ringan">
+      <div style="display:flex; gap:10px;">
+        <div style="flex:1;"><label>Harga Jual (Rp)</label><input id="p-price" type="number" placeholder="0"></div>
+        <div style="flex:1;"><label>Harga Modal (Rp)</label><input id="p-cost" type="number" placeholder="0"></div>
+      </div>
+      <div style="display:flex; gap:10px;">
+        <div style="flex:1;"><label>Stok Awal</label><input id="p-stock" type="number" placeholder="0"></div>
+        <div style="flex:1;"><label>Stok Minimum</label><input id="p-min" type="number" placeholder="5"></div>
+      </div>
+      <label>Satuan</label><input id="p-unit" placeholder="pcs / kg / bungkus" value="pcs">
+      <button class="btn emas" style="margin-top:14px" onclick="addProduct()">Simpan Produk</button>
+    </div>
+
+    <div class="card" id="low-stock-card" style="display:none;">
+      <h3>⚠️ Perlu Restok Segera</h3>
+      <div id="low-stock-list"></div>
+    </div>
+
+    <div class="card">
+      <h3>Daftar Produk</h3>
+      <div id="product-list"><div class="empty-state">Belum ada produk.</div></div>
+    </div>
+  </main>
+
+  <nav class="bottom-nav">
+    <a href="/index.html"><span class="ico">🏠</span>Beranda</a>
+    <a href="/kasir.html"><span class="ico">🧾</span>Kasir</a>
+    <a href="/keuangan.html"><span class="ico">📊</span>Keuangan</a>
+    <a href="/stok.html" class="active"><span class="ico">📦</span>Stok</a>
+    <a href="/marketplace.html"><span class="ico">🏪</span>Pasar</a>
+  </nav>
+</div>
+
+<script src="/js/api.js"></script>
+<script src="/js/auth-guard.js"></script>
+<script src="/js/offline.js"></script>
+<script>
+async function load(){
+  try {
+    const low = await API.get('/api/products/low-stock');
+    const lowCard = document.getElementById('low-stock-card');
+    if (low.count > 0){
+      lowCard.style.display = 'block';
+      document.getElementById('low-stock-list').innerHTML = low.notifikasi.map(n => `<div class="list-row"><span class="meta">🔔 ${n}</span></div>`).join('');
+    } else lowCard.style.display = 'none';
+
+    const res = await API.get('/api/products');
+    const listEl = document.getElementById('product-list');
+    listEl.innerHTML = res.products.length ? res.products.map(p => `
+      <div class="product-card">
+        <img src="${p.image_url || '/icon.svg'}" alt="">
+        <div class="info">
+          <div><strong>${p.name}</strong></div>
+          <div class="meta">${p.category || '-'} • ${p.unit}</div>
+          <div class="price">${rupiah(p.price)}</div>
+          <div class="meta">Stok: ${p.stock} ${p.unit} ${p.stock <= p.min_stock ? '⚠️ menipis' : ''}</div>
+          <div style="display:flex; gap:6px; margin-top:6px;">
+            <button class="btn kecil outline" onclick="adjustStock(${p.id}, 1)">+1</button>
+            <button class="btn kecil outline" onclick="adjustStock(${p.id}, -1)">-1</button>
+            <button class="btn kecil outline" onclick="togglePublish(${p.id}, ${p.is_published ? 0 : 1})">${p.is_published ? 'Batalkan Publikasi' : 'Publikasikan'}</button>
+          </div>
+        </div>
+      </div>`).join('') : '<div class="empty-state">Belum ada produk.</div>';
+  } catch(e){
+    toast(e.error || 'Gagal memuat data.');
+  }
+}
+
+async function addProduct(){
+  const payload = {
+    name: document.getElementById('p-name').value.trim(),
+    category: document.getElementById('p-category').value.trim(),
+    price: document.getElementById('p-price').value,
+    cost: document.getElementById('p-cost').value,
+    stock: document.getElementById('p-stock').value,
+    min_stock: document.getElementById('p-min').value,
+    unit: document.getElementById('p-unit').value.trim() || 'pcs'
+  };
+  if (!payload.name){ toast('Nama produk wajib diisi.'); return; }
+  try {
+    await API.post('/api/products', payload);
+    toast('Produk tersimpan.');
+    ['p-name','p-category','p-price','p-cost','p-stock','p-min'].forEach(id => document.getElementById(id).value = '');
+    load();
+  } catch(e){ toast(e.error || 'Gagal menyimpan produk.'); }
+}
+
+async function adjustStock(id, delta){
+  try {
+    const r = await API.post(`/api/products/${id}/adjust-stock`, { delta, reason: 'Penyesuaian manual' });
+    if (r.peringatan) toast(r.peringatan);
+    load();
+  } catch(e){ toast(e.error || 'Gagal menyesuaikan stok.'); }
+}
+
+async function togglePublish(id, val){
+  try {
+    await API.put(`/api/catalog/publish/${id}`, { is_published: val });
+    toast(val ? 'Produk tampil di katalog & pasar bersama.' : 'Produk disembunyikan dari katalog.');
+    load();
+  } catch(e){ toast(e.error || 'Gagal mengubah status publikasi.'); }
+}
+
+load();
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('/service-worker.js').catch(()=>{});
+</script>
+</body>
+</html>

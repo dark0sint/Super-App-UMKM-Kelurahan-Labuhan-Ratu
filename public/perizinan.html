@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Konsultasi & Perizinan - Super App UMKM Labuhan Ratu</title>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#3a0d14">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<div class="app-shell">
+  <div class="topbar">
+    <div><h1>📋 Izin Usaha</h1><div class="kelurahan">NIB, Halal & P-IRT langkah demi langkah</div></div>
+    <a href="/index.html" style="color:var(--emas-300); font-size:13px;">← Kembali</a>
+  </div>
+  <main id="content">
+    <div class="empty-state">Memuat panduan…</div>
+  </main>
+</div>
+<script src="/js/api.js"></script>
+<script>
+async function load(){
+  try {
+    const r = await API.get('/api/licensing');
+    document.getElementById('content').innerHTML = r.guides.map(g => `
+      <div class="card">
+        <h3>${g.title}</h3>
+        <p style="font-size:13.5px; color:var(--tinta-600);">${g.ringkasan}</p>
+        <div style="display:flex; gap:14px; font-size:12.5px; color:var(--tinta-600); margin-bottom:12px;">
+          <span>⏱️ ${g.estimasi_waktu}</span><span>💵 ${g.biaya}</span>
+        </div>
+        ${g.langkah.map((s, i) => `
+          <div class="step-item">
+            <div class="step-num">${i+1}</div>
+            <div><strong>${s.judul}</strong><div style="font-size:13px; color:var(--tinta-600);">${s.detail}</div></div>
+          </div>`).join('')}
+      </div>`).join('');
+  } catch(e){
+    document.getElementById('content').innerHTML = '<div class="empty-state">Gagal memuat panduan, coba lagi saat online.</div>';
+  }
+}
+load();
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('/service-worker.js').catch(()=>{});
+</script>
+</body>
+</html>

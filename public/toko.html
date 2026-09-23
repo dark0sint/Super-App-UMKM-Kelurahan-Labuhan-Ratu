@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Toko UMKM - Labuhan Ratu</title>
+<meta name="theme-color" content="#3a0d14">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<div class="app-shell">
+  <div class="topbar">
+    <div><h1 id="seller-name">Memuat toko…</h1><div class="kelurahan">UMKM Kelurahan Labuhan Ratu</div></div>
+  </div>
+  <main>
+    <div class="card" id="seller-card"></div>
+    <div class="card">
+      <h3>Produk</h3>
+      <div id="product-list"><div class="empty-state">Memuat produk…</div></div>
+    </div>
+    <div style="text-align:center; padding:14px 0;">
+      <a href="/marketplace.html" style="font-size:13px; color:var(--marun-700);">🏪 Lihat semua UMKM di Pasar Bersama Labuhan Ratu</a>
+    </div>
+  </main>
+</div>
+<script src="/js/api.js"></script>
+<script>
+const username = new URLSearchParams(location.search).get('u');
+async function load(){
+  if (!username){ document.getElementById('seller-name').textContent = 'Toko tidak ditemukan'; return; }
+  try {
+    const r = await API.get('/api/catalog/public/' + username);
+    document.getElementById('seller-name').textContent = r.seller.business_name || r.seller.name;
+    document.getElementById('seller-card').innerHTML = `
+      <p style="margin:0; font-size:13.5px; color:var(--tinta-600);">Dikelola oleh ${r.seller.name}</p>
+      <a class="btn hijau kecil" style="margin-top:10px; display:inline-flex;" href="https://wa.me/${r.seller.wa_number}" target="_blank">💬 Chat via WhatsApp</a>`;
+    document.getElementById('product-list').innerHTML = r.products.length ? r.products.map(p => `
+      <div class="product-card">
+        <img src="${p.image_url || '/icon.svg'}">
+        <div class="info">
+          <strong>${p.name}</strong>
+          <div class="meta">${p.category || ''}</div>
+          <div class="price">${rupiah(p.price)} / ${p.unit}</div>
+        </div>
+      </div>`).join('') : '<div class="empty-state">Belum ada produk dipublikasikan.</div>';
+  } catch(e){
+    document.getElementById('seller-name').textContent = 'Toko tidak ditemukan';
+  }
+}
+load();
+</script>
+</body>
+</html>

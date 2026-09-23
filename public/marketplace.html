@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pasar Bersama - Super App UMKM Labuhan Ratu</title>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#3a0d14">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<div class="app-shell">
+  <div class="topbar">
+    <div><h1>🏪 Pasar Bersama</h1><div class="kelurahan">Produk unggulan se-Kelurahan Labuhan Ratu</div></div>
+    <a href="/index.html" style="color:var(--emas-300); font-size:13px;">← Beranda</a>
+  </div>
+
+  <main>
+    <div class="card">
+      <input id="search" placeholder="Cari produk UMKM…" oninput="load()">
+      <select id="category-filter" onchange="load()" style="margin-top:10px;">
+        <option value="">Semua kategori</option>
+      </select>
+    </div>
+    <div id="product-list"><div class="empty-state">Memuat produk…</div></div>
+  </main>
+
+  <nav class="bottom-nav">
+    <a href="/index.html"><span class="ico">🏠</span>Beranda</a>
+    <a href="/kasir.html"><span class="ico">🧾</span>Kasir</a>
+    <a href="/keuangan.html"><span class="ico">📊</span>Keuangan</a>
+    <a href="/stok.html"><span class="ico">📦</span>Stok</a>
+    <a href="/marketplace.html" class="active"><span class="ico">🏪</span>Pasar</a>
+  </nav>
+</div>
+
+<script src="/js/api.js"></script>
+<script>
+async function loadCategories(){
+  try {
+    const r = await API.get('/api/marketplace/categories');
+    const sel = document.getElementById('category-filter');
+    r.categories.forEach(c => sel.insertAdjacentHTML('beforeend', `<option value="${c}">${c}</option>`));
+  } catch(e){}
+}
+
+async function load(){
+  const q = document.getElementById('search').value;
+  const category = document.getElementById('category-filter').value;
+  const params = new URLSearchParams();
+  if (q) params.set('q', q);
+  if (category) params.set('category', category);
+  try {
+    const r = await API.get('/api/marketplace/products?' + params.toString());
+    const el = document.getElementById('product-list');
+    el.innerHTML = r.products.length ? r.products.map(p => `
+      <div class="product-card">
+        <img src="${p.image_url || '/icon.svg'}">
+        <div class="info">
+          <strong>${p.name}</strong>
+          <div class="meta">${p.business_name || p.seller_name}</div>
+          <div class="price">${rupiah(p.price)} / ${p.unit}</div>
+          <a href="/toko.html?u=${p.username}" style="font-size:12px; color:var(--marun-700);">Kunjungi Toko →</a>
+        </div>
+      </div>`).join('') : '<div class="empty-state"><span class="ico">🛒</span>Belum ada produk. Ayo publikasikan produkmu dari menu Stok!</div>';
+  } catch(e){
+    document.getElementById('product-list').innerHTML = '<div class="empty-state">Sedang offline, coba lagi nanti.</div>';
+  }
+}
+loadCategories();
+load();
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('/service-worker.js').catch(()=>{});
+</script>
+</body>
+</html>

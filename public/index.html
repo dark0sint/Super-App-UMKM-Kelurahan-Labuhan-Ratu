@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Beranda - Super App UMKM Labuhan Ratu</title>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#3a0d14">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<div class="app-shell">
+  <div class="topbar">
+    <div class="brand-mark">
+      <div>
+        <h1 id="greeting">Halo 👋</h1>
+        <div class="kelurahan">UMKM Kel. Labuhan Ratu</div>
+      </div>
+    </div>
+    <button onclick="logout()">Keluar</button>
+  </div>
+
+  <main>
+    <div class="card" style="background:transparent; border:none; padding:0; margin-bottom:10px;">
+      <div class="stat-row">
+        <div class="stat" id="stat-untung">
+          <div class="label">UNTUNG/RUGI BULAN INI</div>
+          <div class="value">Memuat…</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="low-stock-alert" style="display:none" class="card">
+      <h3>⚠️ Stok Menipis</h3>
+      <div id="low-stock-list"></div>
+      <a href="/stok.html" class="btn kecil outline" style="margin-top:8px;">Kelola Stok</a>
+    </div>
+
+    <div class="card">
+      <h3>📦 Pengelolaan Usaha</h3>
+      <div class="grid-menu">
+        <a href="/keuangan.html" class="menu-tile"><span class="ico">📊</span>Keuangan Otomatis</a>
+        <a href="/stok.html" class="menu-tile"><span class="ico">📦</span>Manajemen Stok</a>
+        <a href="/kasir.html" class="menu-tile"><span class="ico">🧾</span>Kasir Digital</a>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>💰 Pembayaran & Permodalan</h3>
+      <div class="grid-menu">
+        <a href="/kasir.html?tab=qris" class="menu-tile"><span class="ico">🔳</span>QRIS Desa</a>
+        <a href="/permodalan.html" class="menu-tile"><span class="ico">🏦</span>Modal BUMDes/LPD</a>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>🚚 Pemasaran & Logistik</h3>
+      <div class="grid-menu">
+        <a href="/katalog.html" class="menu-tile"><span class="ico">🛍️</span>Katalog Digital</a>
+        <a href="/logistik.html" class="menu-tile"><span class="ico">🛵</span>Logistik Desa</a>
+        <a href="/marketplace.html" class="menu-tile"><span class="ico">🏪</span>Pasar Bersama</a>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>💡 Pendampingan & Edukasi</h3>
+      <div class="grid-menu">
+        <a href="/perizinan.html" class="menu-tile"><span class="ico">📋</span>Izin Usaha</a>
+        <a href="/belajar.html" class="menu-tile"><span class="ico">🎓</span>Pojok Belajar</a>
+      </div>
+    </div>
+  </main>
+
+  <nav class="bottom-nav">
+    <a href="/index.html" class="active"><span class="ico">🏠</span>Beranda</a>
+    <a href="/kasir.html"><span class="ico">🧾</span>Kasir</a>
+    <a href="/keuangan.html"><span class="ico">📊</span>Keuangan</a>
+    <a href="/stok.html"><span class="ico">📦</span>Stok</a>
+    <a href="/marketplace.html"><span class="ico">🏪</span>Pasar</a>
+  </nav>
+</div>
+
+<script src="/js/api.js"></script>
+<script src="/js/auth-guard.js"></script>
+<script src="/js/offline.js"></script>
+<script>
+async function load(){
+  const user = API.user();
+  if (user) document.getElementById('greeting').textContent = `Halo, ${user.name.split(' ')[0]} 👋`;
+
+  try {
+    const sum = await API.get('/api/finance/summary?period=month');
+    const el = document.getElementById('stat-untung');
+    el.classList.add(sum.status === 'untung' ? 'untung' : 'rugi');
+    el.innerHTML = `<div class="label">${sum.status === 'untung' ? 'UNTUNG' : 'RUGI'} BULAN INI</div>
+      <div class="value">${rupiah(Math.abs(sum.untung_rugi))}</div>`;
+  } catch(e){ /* offline: biarkan "Memuat…" */ }
+
+  try {
+    const low = await API.get('/api/products/low-stock');
+    if (low.count > 0){
+      document.getElementById('low-stock-alert').style.display = 'block';
+      document.getElementById('low-stock-list').innerHTML = low.notifikasi.map(n => `<div class="list-row"><span class="meta">${n}</span></div>`).join('');
+    }
+  } catch(e){}
+}
+
+function logout(){
+  API.post('/api/auth/logout', {}).catch(()=>{});
+  API.clearSession();
+  location.href = '/login.html';
+}
+
+load();
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('/service-worker.js').catch(()=>{});
+</script>
+</body>
+</html>

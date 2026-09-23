@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pojok Belajar - Super App UMKM Labuhan Ratu</title>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#3a0d14">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<div class="app-shell">
+  <div class="topbar">
+    <div><h1>🎓 Pojok Belajar</h1><div class="kelurahan">Tips singkat, hemat kuota</div></div>
+    <a href="/index.html" style="color:var(--emas-300); font-size:13px;">← Kembali</a>
+  </div>
+  <main>
+    <div class="card">
+      <select id="category" onchange="load()">
+        <option value="">Semua kategori</option>
+        <option value="Keuangan">Keuangan</option>
+        <option value="Pemasaran">Pemasaran</option>
+        <option value="Pembayaran">Pembayaran</option>
+        <option value="Operasional">Operasional</option>
+        <option value="Perizinan">Perizinan</option>
+      </select>
+    </div>
+    <div id="content"><div class="empty-state">Memuat konten…</div></div>
+  </main>
+</div>
+<script src="/js/api.js"></script>
+<script>
+async function load(){
+  const category = document.getElementById('category').value;
+  try {
+    const r = await API.get('/api/learning' + (category ? `?category=${encodeURIComponent(category)}` : ''));
+    document.getElementById('content').innerHTML = r.content.length ? r.content.map(c => `
+      <div class="card">
+        <div class="pill warn" style="margin-bottom:8px;">${c.category}</div>
+        <h3>${c.title}</h3>
+        <p style="font-size:13.5px; color:var(--tinta-600);">${c.description}</p>
+        <div style="font-size:12px; color:var(--tinta-600); margin-bottom:10px;">⏱️ ${c.duration_text} • 📶 ${c.data_size_hint}</div>
+        <a class="btn kecil emas" href="${c.video_url}" target="_blank">▶️ Tonton</a>
+      </div>`).join('') : '<div class="empty-state">Belum ada konten untuk kategori ini.</div>';
+  } catch(e){
+    document.getElementById('content').innerHTML = '<div class="empty-state">Gagal memuat, coba lagi saat online.</div>';
+  }
+}
+load();
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('/service-worker.js').catch(()=>{});
+</script>
+</body>
+</html>
